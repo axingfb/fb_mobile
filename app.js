@@ -132,7 +132,7 @@ function bettingCard() {
       <div><dt>Time remaining</dt><dd id="betting-countdown"></dd></div>
     </dl>
     <button type="button" class="secondary" id="remove-betting" data-action="remove-betting" aria-describedby="removal-note" disabled>Remove</button>
-    <p id="removal-note" class="removal-note">Removal is temporarily locked.</p>
+    <p id="removal-note" class="removal-note">You can remove this limit from 12:00 AM 11/27/2026. The limit remains active until removal is complete.</p>
   </section>`;
 }
 
@@ -217,15 +217,26 @@ function coinContent() {
 const accountRows = [['list','News'],['spark','About Filbet'],['chat','Feedback'],['my','Skins'],['shield','Responsible Gaming']];
 
 function myPage() {
-  return `<h1 class="page-title">My</h1><section class="profile row"><span class="avatar">${icon('my')}</span><div><strong>Member</strong><small>Member ID · 000001</small></div></section>
-  <section class="vip card"><div class="row"><h2>Bronze <span>VIP 0</span></h2><button type="button" class="text-button" data-info="VIP Center">VIP Center ${icon('next')}</button></div><progress value="0" max="1500" aria-label="VIP upgrade progress"></progress><small>Upgrade progress · 0 / 1,500</small></section>
-  <button type="button" class="card row verify" data-info="KYC Verification"><span class="row-icon">${icon('shield')}</span><strong>KYC Verification</strong><span class="row-action">Verify now ${icon('next')}</span></button>
-  <section class="card wallet"><div class="row"><h2>Total Balance (₱)</h2><strong>0.00</strong>${iconButton('history','Refresh balance','balance')}</div>
-  <div class="wallet-actions"><button type="button" class="secondary" data-info="Withdraw">Withdraw</button><button type="button" class="primary" data-info="Deposit">Deposit</button></div>
-  <div class="shortcuts">${[['list','Transaction'],['history','Bet History'],['promos','Bonus'],['wallet','Account']].map(([symbol,label]) => `<button type="button" data-info="${label}">${icon(symbol)}${label}</button>`).join('')}</div></section>
+  return `<section class="profile row" aria-label="Member profile">
+    <span class="avatar">${icon('my')}</span>
+    <div><strong>Member</strong><small>Member ID · 000001</small></div>
+  </section>
+  <section class="vip card"><div class="row"><h2>Bronze <span>VIP 0</span></h2><button type="button" class="text-button" data-info="VIP Center">VIP Center ${icon('next')}</button></div>
+    <div class="vip-progress"><progress value="0" max="1500" aria-label="VIP upgrade progress"></progress><small>0 / 1,500 XP</small></div>
+  </section>
+  <section class="wallet" aria-labelledby="wallet-title">
+    <div class="row wallet-heading"><span class="wallet-symbol">${icon('filcoin')}</span><h2 id="wallet-title">Total Balance</h2>
+      <strong>₱0.00</strong>${iconButton('history','Refresh balance','balance')}
+    </div>
+    <div class="card wallet-panel">
+      <div class="wallet-actions"><button type="button" class="primary" data-info="Deposit">${icon('plus')}Deposit</button><button type="button" class="secondary" data-info="Withdraw">${icon('wallet')}Withdraw</button></div>
+      <div class="shortcuts">${[['list','Transaction'],['history','Bet History'],['promos','Bonus'],['wallet','Account']].map(([symbol,label]) => `<button type="button" data-info="${label}">${icon(symbol)}<span>${label}</span></button>`).join('')}</div>
+    </div>
+  </section>
   <section class="card settings-list" aria-label="Account settings">
+    <button type="button" class="setting-row verify" data-info="KYC Verification"><span class="row-icon">${icon('shield')}</span><span>KYC Verification</span><span class="row-action">Verify now</span><span class="setting-arrow">${icon('next')}</span></button>
     ${accountRows.map(([symbol,label]) => {
-      const content = `<span class="row-icon">${icon(symbol)}</span><span>${label}</span>${icon('next')}`;
+      const content = `<span class="row-icon">${icon(symbol)}</span><span>${label}</span><span class="setting-arrow">${icon('next')}</span>`;
       return label === 'Responsible Gaming' ? link('responsible',content,'setting-row') : `<button type="button" class="setting-row" data-info="${label}">${content}</button>`;
     }).join('')}
   </section>`;
@@ -237,8 +248,15 @@ function timeLabel(value) {
 }
 
 function timeRange(values, inDialog = false) {
-  return `<div class="time-range">${['start','end'].map((side,index) => `${index ? '<span>to</span>' : ''}
-    <button type="button" class="time-button" ${inDialog ? `data-side="${side}" aria-pressed="${scheduleSide === side}"` : `data-schedule="${side}"`} aria-label="${side === 'start' ? 'Start' : 'End'} time, ${timeLabel(values[side])}"><span>${timeLabel(values[side])}</span>${icon('clock')}</button>`).join('')}</div>`;
+  return `<div class="time-range${inDialog ? ' time-range--editor' : ''}">${['start','end'].map(side => {
+    const label = side === 'start' ? 'Start time' : 'End time';
+    const value = timeLabel(values[side]);
+    return `${!inDialog && side === 'end' ? '<span>to</span>' : ''}
+      <button type="button" class="time-button" ${inDialog ? `data-side="${side}" aria-pressed="${scheduleSide === side}"` : `data-schedule="${side}"`} aria-label="${label}, ${value}">
+        ${inDialog ? `<span class="time-button-value"><small>${label}</small><strong>${value}</strong></span>` : `<span>${value}</span>`}
+        ${icon('clock')}
+      </button>`;
+  }).join('')}</div>`;
 }
 
 function limitCard(key, title, content) {
@@ -274,12 +292,18 @@ function render(moveFocus = false) {
   const current = route();
   const active = current === 'responsible' ? 'my' : current;
   document.title = `FB_Mobile · ${current === 'responsible' ? 'Responsible Gaming' : navigation.find(([key]) => key === active)[1]}`;
-  header.className = current === 'responsible' ? 'topbar subbar' : 'topbar';
-  header.innerHTML = current === 'responsible'
-    ? `${link('my',icon('back') + '<span class="sr-only">Back to My</span>','icon-button back')}<h1>Responsible Gaming</h1>`
-    : `${iconButton('menu','Menu','menu')}${link('home','<span class="brand-mark" aria-hidden="true">F</span><span>FB<span class="brand-name"> Mobile</span></span>','brand')}
+  const accountPage = current === 'my' || current === 'responsible';
+  header.className = accountPage ? 'topbar subbar' : 'topbar';
+  if (current === 'responsible') {
+    header.innerHTML = `${link('my',icon('back') + '<span class="sr-only">Back to My</span>','icon-button back')}<h1>Responsible Gaming</h1>`;
+  } else if (current === 'my') {
+    header.innerHTML = `${iconButton('menu','Menu','menu')}<h1>My</h1>
+      <div class="top-actions">${iconButton('search','Search games','search')}${iconButton('support','Support','support')}</div>`;
+  } else {
+    header.innerHTML = `${iconButton('menu','Menu','menu')}${link('home','<span class="brand-mark" aria-hidden="true">F</span><span>FB<span class="brand-name"> Mobile</span></span>','brand')}
       <div class="top-actions"><button type="button" class="balance" data-info="Deposit" aria-label="Wallet balance, 0 pesos">${icon('wallet')} <span>₱0.00</span></button>
       ${iconButton('search','Search games','search')}${iconButton('support','Support','support')}</div>`;
+  }
   main.dataset.page = current;
   if (current === 'responsible') {
     draft = { ...limits };
@@ -295,16 +319,32 @@ function render(moveFocus = false) {
   }
 }
 
-function openDialog(title, content, opener) {
+function openDialog(title, content, opener, { symbol, tone = 'neutral', description } = {}) {
   trigger = opener;
-  dialog.innerHTML = `<div class="dialog-top"><h2 id="dialog-title">${title}</h2>${iconButton('close','Close','close')}</div>${content}`;
+  if (description) dialog.setAttribute('aria-describedby', 'dialog-description');
+  else dialog.removeAttribute('aria-describedby');
+  dialog.innerHTML = `<div class="dialog-top">
+    ${symbol ? `<span class="dialog-symbol dialog-symbol--${tone}">${icon(symbol)}</span>` : ''}
+    <h2 id="dialog-title">${title}</h2>
+    ${iconButton('close','Close','close')}
+  </div>
+  ${description ? `<p class="dialog-note" id="dialog-description">${description}</p>` : ''}
+  ${content}`;
   dialog.showModal();
+}
+
+function bettingDialogDetails(amount) {
+  return `<dl class="dialog-details">
+    <div><dt>Limit</dt><dd>${pesoAmount.format(amount)}</dd></div>
+    <div><dt>Period</dt><dd>Daily</dd></div>
+    <div><dt>Resets at</dt><dd>12:00 AM Manila time</dd></div>
+  </dl>`;
 }
 
 function scheduleFields() {
   const [hour, minute] = scheduleDraft[scheduleSide].split(':').map(Number);
   const select = (key, label, values, current) => `<label>${label}<select data-time-part="${key}">${values.map(([value,text]) => `<option value="${value}" ${current === value ? 'selected' : ''}>${text}</option>`).join('')}</select></label>`;
-  return `${timeRange(scheduleDraft,true)}<div class="time-fields">
+  return `${timeRange(scheduleDraft,true)}<div class="time-fields" role="group" aria-label="Edit ${scheduleSide} time">
     ${select('hour','Hour',Array.from({length:12},(_,i) => [i+1,String(i+1).padStart(2,'0')]),hour % 12 || 12)}
     ${select('minute','Minute',Array.from({length:60},(_,i) => [i,String(i).padStart(2,'0')]),minute)}
     ${select('period','Period',[[0,'AM'],[1,'PM']],Number(hour >= 12))}
@@ -321,7 +361,7 @@ function openSchedule(side, opener) {
   scheduleSide = side;
   openDialog('Daily Gaming Schedule',`
     <div id="schedule-fields">${scheduleFields()}</div>
-    <div class="dialog-actions"><button type="button" class="secondary" data-action="close">Cancel</button><button type="button" class="primary" data-action="confirm-schedule">Confirm</button></div>`,opener);
+    <div class="dialog-actions"><button type="button" class="secondary" data-action="close">Cancel</button><button type="button" class="primary" data-action="confirm-schedule">Confirm</button></div>`, opener, { symbol: 'clock' });
   dialog.querySelector(`[data-side="${side}"]`).focus();
 }
 
@@ -393,11 +433,12 @@ function playGame(button) {
   if (count === 3 || limits.reachedUntil > now) {
     limits.reachedUntil = nextMidnight(now);
     try { localStorage.setItem(storageKey, JSON.stringify(limits)); } catch {}
-    showGameDialog(button, opener => openDialog('You have reached your daily betting limit.', `
+    showGameDialog(button, opener => openDialog('Daily betting limit reached', `
+      ${bettingDialogDetails(limits.betting)}
       <div class="dialog-actions">
         <button type="button" class="secondary" data-action="close">OK</button>
         ${link('responsible', 'View Settings', 'primary settings-link')}
-      </div>`, opener));
+      </div>`, opener, { symbol: 'clock', tone: 'warning' }));
     return;
   }
   pendingGame = { button, count, timer: setTimeout(() => {
@@ -438,11 +479,12 @@ const actions = {
       return;
     }
     if (draft.bettingOn && !limits.bettingOn) {
-      openDialog('After setting a Daily Betting Limit, you cannot remove it until tomorrow.', `
+      openDialog('Set daily betting limit', `
+        ${bettingDialogDetails(draft.betting)}
         <div class="dialog-actions">
           <button type="button" class="secondary" data-action="close">Cancel</button>
           <button type="button" class="primary" data-action="confirm-settings">Confirm</button>
-        </div>`, button);
+        </div>`, button, { symbol: 'shield', tone: 'accent', description: 'You can’t remove this limit until tomorrow.' });
     } else commitSettings();
   },
   'confirm-settings': () => {
