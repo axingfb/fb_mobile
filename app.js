@@ -1,5 +1,6 @@
 const paths = {
   home: '/', daily: '/daily-rewards', game: '/game', promos: '/promos', newbie: '/promos/newbie-rewards', filcoin: '/filcoin',
+  rank: '/game-ranking', rtpAbout: '/game-ranking/about-rtp',
   coinMall: '/filcoin/mall', coinFaq: '/filcoin/faq', coinHistory: '/filcoin/history',
   my: '/my', responsible: '/my/responsible-gaming', vip: '/my/vip', verification: '/my/verification',
   transaction: '/my/transaction', bets: '/my/bet-history', bonus: '/my/bonus', accounts: '/my/accounts',
@@ -32,6 +33,9 @@ const icons = {
   ball:'<circle cx="12" cy="12" r="9"/><path d="m12 8 4 3-1.5 4.5h-5L8 11Zm0-5v5m4 3 4-2m-5.5 6.5 3 4m-8-4-3 4M8 11 4 9"/>',
   grid:'<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>',
   spark:'<path d="m12 2 2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5Z"/>',
+  phone:'<rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 5h4"/>',
+  shirt:'<path d="m8 4-6 4 3 5 3-2v9h8v-9l3 2 3-5-6-4a4 4 0 0 1-8 0Z"/>',
+  copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
 };
 const icon = name => `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${icons[name]}</svg>`;
 const link = (name, text, classes = '') => `<a class="${classes}" href="#${paths[name]}">${text}</a>`;
@@ -70,6 +74,20 @@ function gameCover(game, className = 'game-cover') {
 }
 
 const promoDeadline = '<time datetime="2026-12-31T23:59:59+08:00">Dec 31, 2026 · 11:59 PM PHT</time>';
+const promoImages = [
+  'loss-cashback', 'first-three-deposits', 'daily-rebate',
+  'semi-monthly-vip', 'registration-kyc', 'vip-club',
+].map(name => `./assets/promos/${name}.webp`);
+
+function shuffledPromoImages() {
+  const images = [...promoImages];
+  for (let index = images.length - 1; index > 0; index--) {
+    const other = Math.floor(Math.random() * (index + 1));
+    [images[index], images[other]] = [images[other], images[index]];
+  }
+  return images;
+}
+
 const offers = [
   ['Daily 5% Loss CashBack', '5%', 5, 'Daily cashback on qualifying losses.', 'game', 'More Games'],
   ['First 3 Deposits Promotion', '1–3', 1],
@@ -123,7 +141,7 @@ let coinHistoryTab = 'Earn Filcoins';
 let coinReturn = 'filcoin';
 let depositSlide = 0;
 let heroIndex = 0;
-let heroTimer;
+let carouselProgress;
 let rankingTab = 0;
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const canHover = matchMedia('(hover: hover)');
@@ -205,7 +223,17 @@ function tiles(entries, catalog = false) {
   }).join('')}</div>`;
 }
 
-const homeOffers = [offers[2], offers[0], offers[3]];
+const homeBanners = [
+  ['Daily 1% Rebate Bonus', 'daily-rebate', 'promos'],
+  ['Daily Unlimited CashBack', 'daily-cashback', 'promos'],
+  ['Semi-Monthly VIP Bonus', 'semi-monthly-vip', 'vip'],
+  ['VIP Exclusive Rewards', 'vip-rewards', 'vip'],
+  ['KYC Bonus', 'kyc-bonus', 'verification'],
+];
+for (let last = homeBanners.length - 1; last > 0; last--) {
+  const index = Math.floor(Math.random() * (last + 1));
+  [homeBanners[last], homeBanners[index]] = [homeBanners[index], homeBanners[last]];
+}
 const rewardTiers = [
   [100, 200, 1, 2], [500, 1000, 5, 5], [1000, 5000, 20, 10],
   [3000, 50000, 30, 10], [10000, 100000, 100, 30], [20000, 200000, 200, 30],
@@ -213,31 +241,66 @@ const rewardTiers = [
   [100000, 3000000, 1000, 50], [200000, null, 3000, 50],
 ];
 const rankingLabels = ['Popular', 'Highest RTP', 'Top Multipliers'];
+const rankingTitles = { rank: 'Games Ranking', rtpAbout: 'About Live RTP' };
+const rtpPeriods = ['24 Hours', '1 Hour', '10 Minutes'];
+const rankingDays = ['Last 3 days', 'Last 7 days', 'Last 15 days', 'Last 30 days'];
+const rankingTypes = ['All Game Type', ...categories];
+const rankingFilters = { type: 0, days: 0 };
+let screenRankTab = 1;
+let rtpPeriod = 2;
+let rankingReturn = 'home';
+const rtpSamples = [
+  [0, 98.2, 101.1, 110.6], [8, 99.1, 107.4, 109.54], [1, 97.4, 108.1, 104.8],
+  [10, 98.7, 100.3, 106.2], [2, 96.6, 98.7, 105.3], [11, 98.5, 104.4, 103.7],
+  [9, 97.7, 99.8, 102.4], [12, 97.1, 98.5, 102.9], [13, 96.4, 97.5, 101.3], [14, 95.8, 96.9, 100.7],
+];
+const multiplierSamples = [[0, 10, 8530], [8, 5, 3620], [3, 2, 1290], [4, 20, 2400], [10, 3, 1850], [11, 8, 9800]];
 const popularGames = [[0, 13900], [8, 9870], [1, 5550], [10, 5366], [2, 5350], [11, 3128], [9, 1897], [12, 1684]];
 const homeNumber = new Intl.NumberFormat('en-PH');
 
 function heroSlide(index) {
-  const [title, , art, , destination] = homeOffers[index];
-  const tint = ['Daily', 'Welcome', 'VIP'][index];
-  return `<div class="hero" data-feature="${tint}"><div class="hero-copy">
-    <h2>${title}</h2>${link(destination, (destination === 'vip' ? 'VIP Center' : 'View games') + icon('next'), 'primary hero-link')}
-  </div><span class="hero-art art art-${art}" aria-hidden="true"></span></div>`;
+  const [title, asset, destination] = homeBanners[index];
+  return `<a class="hero" href="#${paths[destination]}" draggable="false">
+    <img src="./assets/banners/${asset}.webp" alt="${title}" width="1041" height="381" draggable="false">
+  </a>`;
 }
 
-function scheduleHero() {
-  clearTimeout(heroTimer);
-  const carousel = main.querySelector('.home-carousel');
-  if (!carousel || reducedMotion.matches || document.hidden || dialog.open ||
-      carousel.matches(':focus-within, [data-swiping]') ||
-      (canHover.matches && carousel.matches(':hover'))) return;
-  heroTimer = setTimeout(() => showHero(heroIndex + 1, 1), 4500);
+function scheduleCarousel() {
+  const carousel = main.querySelector('.home-carousel, .deposit-carousel');
+  if (!carousel || reducedMotion.matches) {
+    resetCarouselProgress();
+    return;
+  }
+  if (document.hidden || dialog.open || carousel.matches(':has(:focus-visible), [data-swiping]') ||
+      (canHover.matches && carousel.matches(':hover'))) {
+    carouselProgress?.pause();
+    return;
+  }
+  if (carouselProgress) {
+    carouselProgress.play();
+    return;
+  }
+  const fill = carousel.querySelector('[aria-pressed="true"] .hero-dot-fill');
+  carouselProgress = fill.animate([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], {
+    duration: 4500, fill: 'forwards',
+  });
+  carouselProgress.addEventListener('finish', () => {
+    if (carousel.matches('.deposit-carousel')) showDepositSlide((depositSlide + 1) % depositStages.length);
+    else showHero(heroIndex + 1, 1);
+  }, { once: true });
+}
+
+function resetCarouselProgress() {
+  carouselProgress?.cancel();
+  carouselProgress = undefined;
 }
 
 function showHero(index, direction = Math.sign(index - heroIndex)) {
   const viewport = main.querySelector('.hero-viewport');
   if (!viewport) return;
-  index = (index + homeOffers.length) % homeOffers.length;
+  index = (index + homeBanners.length) % homeBanners.length;
   if (index !== heroIndex) {
+    resetCarouselProgress();
     heroIndex = index;
     const outgoing = viewport.querySelector('.hero:not([inert])');
     viewport.querySelector('.hero[inert]')?.remove();
@@ -255,7 +318,14 @@ function showHero(index, direction = Math.sign(index - heroIndex)) {
     }
     choice(main.querySelector(`[data-hero="${index}"]`), 'hero');
   }
-  scheduleHero();
+  scheduleCarousel();
+}
+
+function bindCarouselProgress(carousel) {
+  carousel.addEventListener('pointerenter', scheduleCarousel);
+  carousel.addEventListener('pointerleave', scheduleCarousel);
+  carousel.addEventListener('focusin', scheduleCarousel);
+  carousel.addEventListener('focusout', () => queueMicrotask(scheduleCarousel));
 }
 
 function bindHomeCarousel() {
@@ -263,10 +333,7 @@ function bindHomeCarousel() {
   const viewport = carousel.querySelector('.hero-viewport');
   let start;
   let suppressClick = false;
-  carousel.addEventListener('pointerenter', scheduleHero);
-  carousel.addEventListener('pointerleave', scheduleHero);
-  carousel.addEventListener('focusin', scheduleHero);
-  carousel.addEventListener('focusout', () => queueMicrotask(scheduleHero));
+  bindCarouselProgress(carousel);
   carousel.addEventListener('keydown', event => {
     if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
     event.preventDefault();
@@ -279,7 +346,7 @@ function bindHomeCarousel() {
     start = { x: event.clientX, y: event.clientY };
     suppressClick = false;
     carousel.dataset.swiping = '';
-    scheduleHero();
+    scheduleCarousel();
   });
   function endSwipe(event) {
     if (!start || !event.isPrimary) return;
@@ -291,7 +358,7 @@ function bindHomeCarousel() {
       suppressClick = true;
       const direction = dx < 0 ? 1 : -1;
       showHero(heroIndex + direction, direction);
-    } else scheduleHero();
+    } else scheduleCarousel();
   }
   viewport.addEventListener('pointerup', endSwipe);
   viewport.addEventListener('pointercancel', endSwipe);
@@ -305,7 +372,7 @@ function bindHomeCarousel() {
       suppressClick = false;
     }
   }, true);
-  scheduleHero();
+  scheduleCarousel();
 }
 
 function rewardTier([deposit, bet, credit, spins], details = false) {
@@ -335,6 +402,79 @@ function rankingResults() {
   </div></div>`;
 }
 
+function screenRankingResults() {
+  const type = rankingTypes[rankingFilters.type];
+  const dayFactor = [1, 2, 4, 8][rankingFilters.days];
+  let entries;
+  if (screenRankTab === 1) {
+    entries = rtpSamples.map(([index, ...rates]) => [index, rates[rtpPeriod]]).sort((a, b) => b[1] - a[1]);
+  } else if (screenRankTab === 0) {
+    entries = popularGames.map(([index, count]) => [index, count * dayFactor]);
+  } else {
+    entries = multiplierSamples.map(([index, bet, win], order) => {
+      const payout = win + rankingFilters.days * (order + 1) * 120;
+      return [index, payout / bet, bet, payout];
+    }).sort((a, b) => b[1] - a[1]);
+  }
+  if (screenRankTab !== 1 && rankingFilters.type) entries = entries.filter(([index]) => games[index][2] === type);
+  if (!entries.length) return '<p class="empty">No Games Available</p>';
+  return `<ol class="card screen-rank-list">${entries.map(([index, metric, bet, win], place) => {
+    const game = games[index];
+    const [name, studio, type] = game;
+    const details = screenRankTab === 1
+      ? `<strong>${metric.toFixed(2)}%</strong><small>${studio} · ${type}</small>`
+      : screenRankTab === 0
+        ? `<strong>${name}</strong><small>${studio} · ${homeNumber.format(metric)} players</small>`
+        : `<strong>×${homeNumber.format(metric)}</strong><small>${pesoAmount.format(bet)} Bet · ${pesoAmount.format(win)} Win</small>`;
+    return `<li><button type="button" class="screen-rank-row" data-game="${index}">
+      ${gameCover(game, 'screen-rank-cover')}<span>${screenRankTab === 0 ? '' : `<span class="sr-only">${name}</span>`}${details}</span><span class="screen-rank-place" aria-hidden="true">${place + 1}</span>
+    </button></li>`;
+  }).join('')}</ol><p class="screen-rank-count">Sample data · ${entries.length} games</p>`;
+}
+
+function screenRankingContent() {
+  const rtp = screenRankTab === 1;
+  return `${rtp ? `<section class="card rtp-intro">
+    <h2>Understanding Return to Player</h2><p>RTP describes how much a game pays back on average over time.</p>
+    ${link('rtpAbout', 'Learn More', 'primary')}
+  </section><div class="card screen-rank-periods" role="group" aria-label="RTP time period">
+    ${rtpPeriods.map((label, index) => `<button type="button" data-rtp-period="${index}" aria-pressed="${rtpPeriod === index}">${label}</button>`).join('')}
+  </div>` : `<div class="screen-rank-filters">
+    <button type="button" class="secondary" data-action="rank-type">${rankingTypes[rankingFilters.type]}</button>
+    <button type="button" class="secondary" data-action="rank-days">${rankingDays[rankingFilters.days]}</button>
+  </div>`}
+  <div id="screen-rank-results" aria-live="polite">${screenRankingResults()}</div>`;
+}
+
+function screenRankingPage() {
+  return `<div class="screen-rank-tabs" role="group" aria-label="Ranking type">
+    ${rankingLabels.map((label, index) => `<button type="button" data-screen-rank="${index}" aria-pressed="${screenRankTab === index}">${label}</button>`).join('')}
+  </div><div id="screen-rank-content">${screenRankingContent()}</div>`;
+}
+
+function aboutRtpPage() {
+  return `<article class="card rtp-about">
+    <h2>Live RTP</h2>
+    <p>Return to player (RTP) is the share of wagers a game pays back on average. An RTP of 96% means a theoretical return of ₱96 for every ₱100 wagered over many rounds.</p>
+    <h2>RTP and volatility</h2>
+    <p>Games with the same RTP can pay out at different frequencies and in different amounts. Short-term results vary, and recent returns cannot predict the outcome of your next round.</p>
+    <h2>Playing responsibly</h2>
+    <p>Over time, a game with a theoretical RTP below 100% returns less than it takes in. Set limits and treat play as entertainment.</p>
+  </article>`;
+}
+
+function openRankingFilter(key, button) {
+  const isType = key === 'type';
+  const options = isType ? rankingTypes : rankingDays;
+  openDialog(isType ? 'Game Type' : 'Time', `<form data-ranking-filter="${key}">
+    <div class="screen-rank-options">${options.map((label, index) => `<label>
+      ${label}<input type="radio" name="value" value="${index}" ${index === rankingFilters[key] ? 'checked' : ''}>
+    </label>`).join('')}</div>
+    <div class="dialog-actions"><button type="button" class="secondary" data-action="rank-reset">Reset</button>
+      <button type="submit" class="primary">Confirm</button></div>
+  </form>`, button);
+}
+
 function homeActivity() {
   const results = [[0, 50, 5205], [2, 45, 7794], [8, 8, 8000], [1, 150, 21410], [10, 20, 5291], [12, 100, 17330]];
   const cards = results.map(([index, stake, win]) => `<div class="home-result">
@@ -354,11 +494,34 @@ function homeGameSection(title, symbol, entries, filter) {
   </div>${tiles(entries)}</section>`;
 }
 
+function homeFooter() {
+  const social = [
+    ['facebook', 'Facebook', 'https://www.facebook.com/FilbetPHofficial/'],
+    ['instagram', 'Instagram', 'https://www.instagram.com/filbetphofficial'],
+    ['telegram', 'Telegram', 'https://t.me/+bzBAYe2phTczYTg1'],
+  ];
+  const regulatory = [
+    ['pagcor', 'PAGCOR', 'https://www.pagcor.ph/'],
+    ['responsible-gaming', 'Gambling can be addictive. Know when to stop. 21 and above only.', 'https://www.pagcor.ph/regulatory/'],
+    ['npgh', 'National Problem Gambling Helpline', 'https://www.npgh.ph/'],
+  ];
+  const imageLink = ([asset, label, href]) => `<a href="${href}" target="_blank" rel="noopener noreferrer">
+    <img src="./assets/footer/${asset}.webp" alt="${label}" loading="lazy">
+  </a>`;
+  return `<footer class="home-footer">
+    <h2>Follow Us</h2>
+    <div class="footer-social">${social.map(imageLink).join('')}</div>
+    <div class="footer-regulatory">${regulatory.map(imageLink).join('')}</div>
+    <p>Gotech Entertainment Inc. owns the registered FilBet trademark and business name. The Philippine Amusement and Gaming Corporation (PAGCOR) licenses and regulates FilBet.</p>
+    <p class="footer-copyright">Copyright © 2026 FilBet. All rights reserved.</p>
+  </footer>`;
+}
+
 function homePage() {
   return `<h1 class="sr-only">Home</h1>
   <section class="home-carousel" aria-label="Featured promos">
     <div class="hero-viewport">${heroSlide(heroIndex)}</div>
-    <div class="hero-dots" role="group" aria-label="Choose promotion">${homeOffers.map(([title], index) => `<button type="button" data-hero="${index}" aria-label="${title}" aria-pressed="${index === heroIndex}"></button>`).join('')}</div>
+    <div class="hero-dots" role="group" aria-label="Choose promotion">${homeBanners.map(([title], index) => `<button type="button" data-hero="${index}" aria-label="${title}" aria-pressed="${index === heroIndex}"><span class="hero-dot" aria-hidden="true"><span class="hero-dot-fill"></span></span></button>`).join('')}</div>
   </section>
   <section class="card reward-card">
     <h2>${link('daily', icon('promos') + 'Daily Rewards' + icon('next'))}</h2>
@@ -375,7 +538,7 @@ function homePage() {
   </section>
   ${homeActivity()}
   ${['Live', 'Fishing', 'Sport'].map(title => homeGameSection(title, categoryIcons[categories.indexOf(title)], games.filter(entry => entry[2] === title), title)).join('')}
-  <footer class="card home-footer">${link('responsible', 'Responsible Gaming')}${link('about', 'About Filbet')}</footer>`;
+  ${homeFooter()}`;
 }
 
 function gameVendors() {
@@ -408,7 +571,18 @@ function depositBanner() {
   return link('newbie', `<span><strong>${label}</strong><small>Up to ₱${bonus} + ${spins} Free Spins</small></span>${icon('next')}`, 'deposit-banner');
 }
 
+function showDepositSlide(index) {
+  if (index !== depositSlide) {
+    resetCarouselProgress();
+    depositSlide = index;
+    choice(main.querySelector(`[data-deposit-slide="${index}"]`), 'deposit-slide');
+    main.querySelector('#deposit-slide').innerHTML = depositBanner();
+  }
+  scheduleCarousel();
+}
+
 function promosPage() {
+  const images = shuffledPromoImages();
   return `<h1 class="sr-only">Promos</h1>
   <section class="promo-balances" aria-label="My rewards">
     ${link('filcoin', `<strong>${coinBalance.toFixed(2)}</strong><span>My Filcoin ${icon('next')}</span>`)}
@@ -416,13 +590,15 @@ function promosPage() {
   </section>
   <section class="promo-newbie" aria-labelledby="promo-newbie-title">
     <h2 id="promo-newbie-title">${link('newbie', `Newbie Rewards ${icon('next')}`)}</h2>
-    <div id="deposit-slide" aria-live="polite">${depositBanner()}</div>
-    <div class="deposit-dots" role="group" aria-label="Newbie reward slides">
-      ${depositStages.map(([label], index) => `<button type="button" data-deposit-slide="${index}" aria-label="${label}" aria-pressed="${depositSlide === index}"></button>`).join('')}
+    <div class="deposit-carousel">
+    <div id="deposit-slide">${depositBanner()}</div>
+    <div class="hero-dots deposit-dots" role="group" aria-label="Newbie reward slides">
+      ${depositStages.map(([label], index) => `<button type="button" data-deposit-slide="${index}" aria-label="${label}" aria-pressed="${depositSlide === index}"><span class="hero-dot" aria-hidden="true"><span class="hero-dot-fill"></span></span></button>`).join('')}
+    </div>
     </div>
   </section>
   <section class="promo-list" aria-label="Offers">${offers.map((offer, index) => {
-    const content = `${offerArt(offer)}<span class="offer-info"><strong>${offer[0]}</strong><small>Ends ${promoDeadline}</small>${icon('next')}</span>`;
+    const content = `<img class="promo-list-image" src="${images[index % images.length]}" width="1041" height="381" alt=""><span class="offer-info"><strong>${offer[0]}</strong><small>Ends ${promoDeadline}</small>${icon('next')}</span>`;
     return index === 1 ? link('newbie', content, 'promo-card') : `<button type="button" class="promo-card" data-promo="${index}">${content}</button>`;
   }).join('')}</section>`;
 }
@@ -647,6 +823,31 @@ function myPage() {
   ${memberButton('Log Out', 'member-logout', 'secondary member-wide')}`;
 }
 
+function menuContent() {
+  const account = member.signedIn ? `<div class="drawer-profile">
+    ${link('my', `<span class="avatar member-avatar" data-frame="${member.frame}">${icon('my')}</span><strong>Member</strong>${icon('next')}`, 'drawer-account')}
+    <button type="button" class="drawer-member-id" data-action="copy-member-id" aria-label="Copy member ID 000001">ID: 000001 ${icon('copy')}</button>
+    <span class="drawer-copy-feedback" role="status"></span>
+  </div>
+  ${link('vip', '<div><strong>Bronze</strong><span>VIP 0</span></div><small>1,500 XP to upgrade to VIP 1</small>', 'drawer-vip')}
+  <div class="drawer-coins"><div><small>My Filcoins</small><strong>${icon('filcoin')} ${coinBalance}</strong></div>
+    ${link('filcoin', 'Earn', 'primary')}</div>` : link('my', `<span class="avatar">${icon('my')}</span><strong>Log In</strong>${icon('next')}`, 'drawer-account');
+  const row = (symbol, label, action) => `<button type="button" data-action="${action}">${icon(symbol)}<span>${label}</span>${icon('next')}</button>`;
+  return `<div class="drawer-content">
+    ${account}
+    <section class="drawer-casino"><h3>Casino</h3>
+      <div class="drawer-categories">${categories.map((name,index) => `<button type="button" data-home-category="${name}">${icon(categoryIcons[index])}<span>${name}</span></button>`).join('')}</div>
+    </section>
+    <div class="drawer-links">
+      ${row('spark', 'Live RTP', 'live-rtp')}
+      ${link('vip', icon('filcoin') + '<span>VIP Club</span>' + icon('next'))}
+      ${row('support', 'Live Support', 'support')}
+      ${link('skins', icon('shirt') + '<span>Skins</span>' + icon('next'))}
+      ${row('phone', 'APP Download', 'app-download')}
+    </div>
+  </div>`;
+}
+
 function recordPage(kind) {
   const types = kind === 'bonus' ? bonusTypes : kind === 'transaction' ? [...statuses, 'Timeout'] : statuses;
   return `<section class="member-stack">
@@ -800,7 +1001,7 @@ function responsiblePage() {
 }
 
 const pages = {
-  home: homePage, daily: dailyPage, game: gamePage, promos: promosPage, newbie: newbiePage, filcoin: filcoinPage, coinMall: () => filcoinPage(true),
+  rank: screenRankingPage, rtpAbout: aboutRtpPage, home: homePage, daily: dailyPage, game: gamePage, promos: promosPage, newbie: newbiePage, filcoin: filcoinPage, coinMall: () => filcoinPage(true),
   coinFaq: coinFaqPage, coinHistory: coinHistoryPage, my: myPage, responsible: responsiblePage,
   vip: vipPage, verification: verificationPage, transaction: () => recordPage('transaction'),
   bets: () => recordPage('bets'), bonus: () => recordPage('bonus'), accounts: accountsPage,
@@ -811,13 +1012,18 @@ history.scrollRestoration = 'manual';
 
 function render(moveFocus = false) {
   const current = route();
+  const rankingTitle = rankingTitles[current];
   const memberTitle = memberTitles[current];
   const coinTitle = coinSubpageTitles[current];
-  const active = current === 'coinMall' || coinTitle ? 'filcoin' : current === 'daily' ? 'home' : current === 'newbie' ? 'promos' : memberTitle ? 'my' : current;
-  document.title = `FB_Mobile · ${(current === 'daily' ? 'Daily Rewards' : current === 'newbie' ? 'Newbie Rewards' : coinTitle || memberTitle) || navigation.find(([key]) => key === active)[1]}`;
-  header.className = current === 'daily' || current === 'my' || current === 'newbie' || memberTitle || coinTitle ? 'topbar subbar' : 'topbar';
-  clearTimeout(heroTimer);
-  if (current === 'daily') {
+  const active = rankingTitle ? 'game' : current === 'coinMall' || coinTitle ? 'filcoin' : current === 'daily' ? 'home' : current === 'newbie' ? 'promos' : memberTitle ? 'my' : current;
+  document.title = `FB_Mobile · ${(current === 'daily' ? 'Daily Rewards' : current === 'newbie' ? 'Newbie Rewards' : coinTitle || memberTitle) || rankingTitle || navigation.find(([key]) => key === active)[1]}`;
+  header.className = current === 'daily' || current === 'my' || current === 'newbie' || memberTitle || coinTitle || rankingTitle ? 'topbar subbar' : 'topbar';
+  resetCarouselProgress();
+  nav.hidden = Boolean(rankingTitle);
+  if (rankingTitle) {
+    const target = current === 'rtpAbout' ? 'rank' : rankingReturn;
+    header.innerHTML = `${link(target, icon('close') + '<span class="sr-only">Close</span>', 'icon-button back')}<h1>${rankingTitle}</h1>`;
+  } else if (current === 'daily') {
     header.innerHTML = `${link('home', icon('back') + '<span class="sr-only">Back to Home</span>', 'icon-button back')}<h1>Daily Rewards</h1>`;
   } else if (current === 'newbie') {
     header.innerHTML = `${link('promos', icon('back') + '<span class="sr-only">Back to Promos</span>', 'icon-button back')}<h1>Newbie Rewards</h1>`;
@@ -829,7 +1035,7 @@ function render(moveFocus = false) {
     header.innerHTML = `${iconButton('menu','Menu','menu')}<h1>My</h1>
       <div class="top-actions">${iconButton('search','Search games','search')}${iconButton('support','Support','support')}</div>`;
   } else {
-    header.innerHTML = `${iconButton('menu','Menu','menu')}${link('home','<span class="brand-mark" aria-hidden="true">F</span><span>FB<span class="brand-name"> Mobile</span></span>','brand')}
+    header.innerHTML = `${iconButton('menu','Menu','menu')}${link('home','<span class="brand-mark" aria-hidden="true">F</span><span>Filbet</span>','brand')}
       <div class="top-actions"><button type="button" class="balance" data-action="member-deposit" aria-label="Deposit · ${memberMoney(member.balance)}">${icon('wallet')} <span>${memberMoney(member.balance)}</span></button>
       ${iconButton('search','Search games','search')}${iconButton('support','Support','support')}</div>`;
   }
@@ -841,6 +1047,10 @@ function render(moveFocus = false) {
     renderSettings();
   } else main.innerHTML = pages[current]();
   if (current === 'home') bindHomeCarousel();
+  if (current === 'promos') {
+    bindCarouselProgress(main.querySelector('.deposit-carousel'));
+    scheduleCarousel();
+  }
   for (const item of nav.querySelectorAll('[data-route]')) {
     if (item.dataset.route === active) item.setAttribute('aria-current', 'page');
     else item.removeAttribute('aria-current');
@@ -854,7 +1064,6 @@ function render(moveFocus = false) {
 function openDialog(title, content, opener, { symbol, tone = 'neutral', description, drawer = false } = {}) {
   trigger = opener;
   dialog.classList.toggle('home-drawer', drawer);
-  clearTimeout(heroTimer);
   if (description) dialog.setAttribute('aria-describedby', 'dialog-description');
   else dialog.removeAttribute('aria-describedby');
   dialog.innerHTML = `<div class="dialog-top">
@@ -865,6 +1074,7 @@ function openDialog(title, content, opener, { symbol, tone = 'neutral', descript
   ${description ? `<p class="dialog-note" id="dialog-description">${description}</p>` : ''}
   ${content}`;
   dialog.showModal();
+  scheduleCarousel();
 }
 
 function bettingDialogDetails(amount) {
@@ -1129,12 +1339,39 @@ const actions = {
     member.accounts = member.accounts.filter(account => account.id !== button.dataset.accountId);
     finishMemberAction('Account removed', '[data-action="member-add-account"]');
   },
-  menu: button => openDialog('Menu',`<div class="dialog-menu">${navigation.map(([key,label]) => link(key,icon(key) + label)).join('')}${link('responsible',icon('shield') + 'Responsible Gaming')}</div>`,button, { drawer: route() === 'home' }),
+  menu: button => openDialog('Menu', menuContent(), button, { drawer: true }),
+  'live-rtp': () => {
+    rankingReturn = route();
+    screenRankTab = 1;
+    rtpPeriod = 2;
+    dialog.close();
+    location.hash = paths.rank;
+  },
+  'rank-type': button => openRankingFilter('type', button),
+  'rank-days': button => openRankingFilter('days', button),
+  'rank-reset': button => {
+    button.form.elements.value[0].checked = true;
+  },
+  'copy-member-id': async button => {
+    const feedback = button.nextElementSibling;
+    try {
+      await navigator.clipboard.writeText('000001');
+      feedback.textContent = 'ID copied';
+    } catch { feedback.textContent = 'Could not copy ID'; }
+  },
+  'app-download': () => {
+    dialog.close();
+    announce('App download unavailable');
+  },
   search: button => {
     openDialog('Search games','<label class="search-field">Game name<input type="search" id="search-games" placeholder="Search games"></label><div id="search-results"></div>',button);
     document.querySelector('#search-games').focus();
   },
-  support: button => openDialog('Support',`<div class="dialog-menu">${link('responsible',icon('shield') + 'Responsible Gaming')}</div>`,button),
+  support: button => {
+    const opener = dialog.contains(button) ? trigger : button;
+    if (dialog.open) dialog.close();
+    openDialog('Support',`<div class="dialog-menu">${link('responsible',icon('shield') + 'Responsible Gaming')}</div>`,opener);
+  },
   'promo-spins': button => openDialog('My Free Spins', `
     <dl class="dialog-details"><div><dt>Available for use</dt><dd>0</dd></div><div><dt>Total winnings</dt><dd>₱0.00</dd></div></dl>
     ${accountTabs(spinTabs, spinTabs[0], 'spin-tab', 'Free Spin status')}
@@ -1200,7 +1437,7 @@ document.addEventListener('click', event => {
     if (event.clientX < left || event.clientX >= right || event.clientY < top || event.clientY >= bottom) dialog.close();
     return;
   }
-  const button = event.target.closest('button, a[href^="#"]');
+  const button = event.target.closest('button, a[href^="#"], .drawer-links a');
   if (!button) return;
   if (button.tagName === 'A') {
     if (button.matches('.coin-faq-link, .coin-balance')) coinReturn = route();
@@ -1263,14 +1500,21 @@ document.addEventListener('click', event => {
       <dl class="dialog-details"><div><dt>Ends</dt><dd>${promoDeadline}</dd></div></dl>
       <div class="dialog-actions">${link(destination, label, 'primary member-link')}</div>`, button);
   }
-  if (data.depositSlide !== undefined) {
-    depositSlide = Number(data.depositSlide);
-    choice(button, 'deposit-slide');
-    document.querySelector('#deposit-slide').innerHTML = depositBanner();
-  }
+  if (data.depositSlide !== undefined) showDepositSlide(Number(data.depositSlide));
   if (data.spinTab) {
     choice(button, 'spin-tab');
     document.querySelector('#spin-content').textContent = spinEmpty(data.spinTab);
+  }
+  if (data.screenRank !== undefined) {
+    screenRankTab = Number(data.screenRank);
+    choice(button, 'screen-rank');
+    document.querySelector('#screen-rank-content').innerHTML = screenRankingContent();
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+  if (data.rtpPeriod !== undefined) {
+    rtpPeriod = Number(data.rtpPeriod);
+    choice(button, 'rtp-period');
+    document.querySelector('#screen-rank-results').innerHTML = screenRankingResults();
   }
   if (data.hero !== undefined) showHero(Number(data.hero));
   if (data.ranking !== undefined && rankingTab !== Number(data.ranking)) {
@@ -1281,7 +1525,9 @@ document.addEventListener('click', event => {
   if (data.homeCategory) {
     category = data.homeCategory;
     vendor = 'All';
-    location.hash = paths.game;
+    if (dialog.open) dialog.close();
+    if (route() === 'game') render(true);
+    else location.hash = paths.game;
   }
   if (data.category || data.vendor) {
     if (data.category && category !== data.category) {
@@ -1353,6 +1599,15 @@ document.addEventListener('focusout', ({ target }) => {
 
 document.addEventListener('submit', event => {
   const form = event.target;
+  if (form.dataset.rankingFilter) {
+    event.preventDefault();
+    rankingFilters[form.dataset.rankingFilter] = Number(new FormData(form).get('value'));
+    const action = trigger.dataset.action;
+    dialog.close();
+    document.querySelector('#screen-rank-content').innerHTML = screenRankingContent();
+    main.querySelector(`[data-action="${action}"]`).focus({ preventScroll: true });
+    return;
+  }
   const handler = memberSubmissions[form.dataset.memberForm];
   if (!handler) return;
   event.preventDefault();
@@ -1390,10 +1645,10 @@ document.addEventListener('input', ({ target }) => {
   const results = games.filter(([name]) => name.toLowerCase().includes(query));
   document.querySelector('#search-results').innerHTML = query ? (results.length ? tiles(results) : '<p>No matching games.</p>') : '';
 });
-reducedMotion.addEventListener('change', scheduleHero);
-document.addEventListener('visibilitychange', scheduleHero);
+reducedMotion.addEventListener('change', scheduleCarousel);
+document.addEventListener('visibilitychange', scheduleCarousel);
 dialog.addEventListener('close', () => {
-  scheduleHero();
+  scheduleCarousel();
   if (!dialog.open && dialog.contains(document.activeElement)) trigger?.focus({ preventScroll: true });
 });
 window.addEventListener('hashchange', () => {
